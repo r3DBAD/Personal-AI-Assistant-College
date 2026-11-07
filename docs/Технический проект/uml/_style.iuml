@@ -1,0 +1,13 @@
+skinparam defaultFontName "Liberation Sans"
+skinparam defaultFontSize 12
+skinparam monochrome true
+skinparam shadowing false
+skinparam dpi 150
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam roundCorner 4
+skinparam ArrowColor #222222
+skinparam sequenceMessageAlign left
+skinparam ParticipantPadding 8
+skinparam BoxPadding 6
+hide empty members

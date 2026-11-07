@@ -1,0 +1,45 @@
+@startuml seq_uc1_day
+!include _style.iuml
+title Последовательность: просмотр сводки учебного дня (UC-1)
+actor "Студент" as U
+participant "Dashboard.tsx" as P
+participant "ApiHooks\n(TanStack Query)" as H
+participant "nginx" as N
+participant "Dependencies,\nFeatureGuard" as D
+participant "AgendaRouter" as AR
+participant "AgendaService" as AS
+participant "ScheduleRouter" as SR
+participant "RedisClient" as RD
+database "PostgreSQL" as DB
+
+U -> P : открыть главную
+P -> H : useGroupSchedule, usePlannerEvents,\nuseAllSubjectTasks, useWeekStats, agenda-day
+par расписание группы
+  H -> N : GET /api/v1/schedule/groups/{id}
+  N -> SR : запрос
+  SR -> D : проверить JWT, версию токена,\nвозможность «schedule»
+  SR -> RD : кэш расписания
+  alt кэш пуст
+    SR -> DB : SELECT группа + занятия (user_id)
+    SR -> RD : SET со сроком жизни
+  end
+  SR --> H : занятия недели
+else свободные окна
+  H -> N : GET /api/v1/agenda/day
+  N -> AR : запрос
+  AR -> D : проверить JWT
+  AR -> AS : day_plan(user, today)
+  AS -> DB : пары дня, дела планера
+  AS -> AS : _merge(занятые промежутки)
+  AS -> AS : окна > 45 мин в 9:00–23:00
+  AS -> DB : долг по тренировкам, сроки,\nпрофиль привычек
+  AS --> AR : окна и предложения
+  AR --> H : JSON
+else дела, домашние задания, показатели
+  H -> N : GET /planner, /subject-tasks,\n/sport/stats/week
+  N --> H : JSON
+end
+H --> P : данные в кэше запросов
+P -> P : состояние пар относительно\nтекущей минуты (useNowMinute)
+P --> U : сводка дня
+@enduml

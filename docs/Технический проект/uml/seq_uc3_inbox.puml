@@ -1,0 +1,46 @@
+@startuml seq_uc3_inbox
+!include _style.iuml
+title Последовательность: запись дела произвольной фразой (UC-3)
+actor "Студент" as U
+participant "QuickCapture\n(веб-клиент)" as Q
+participant "AssistantRouter" as AR
+database "PostgreSQL" as DB
+participant "BotHttpApi" as BH
+participant "LLMDialog" as L
+participant "GPTunnel\n(языковая модель)" as G
+participant "ToolRegistry" as T
+participant "BackendClient" as BC
+participant "PlannerRouter /\nRemindersRouter / …" as API
+
+U -> Q : «напомни по будням в 8:30 взять пропуск»
+Q -> AR : POST /api/v1/assistant/inbox
+AR -> AR : проверка JWT, возможности «jarvis»,\nдлины ≤ 2000
+AR -> BH : POST http://bot:8081/ask\n{user_id, message, mode=inbox}, X-Bot-Secret
+BH -> BH : compare_digest(секрет)
+BH -> BC : acting_user = user_id
+BH -> L : chat([], фраза, mode=inbox)
+L -> BC : настройки prompt.jarvis, prompt.inbox, llm.model
+L -> L : _context(): дата, время МСК, пары
+loop не более 8 раундов
+  L -> G : messages + TOOLS
+  alt ответ с вызовом инструмента
+    G --> L : tool_call create_reminder(text, time, repeat=weekdays)
+    L -> T : HANDLERS[create_reminder](args)
+    T -> BC : post(/api/v1/reminders)
+    BC -> API : запрос от имени acting_user
+    API -> DB : INSERT reminders
+    API --> T : созданная запись
+    T --> L : «Напоминание по будням в 8:30 [a1b2c3d4]»
+  else текстовый ответ
+    G --> L : итоговый текст
+  end
+end
+L -> L : _strip_ids(ответ)
+L --> BH : ответ
+BH -> BC : сбросить acting_user
+BH --> AR : {reply}
+AR -> DB : сохранить фразу и ответ (source = inbox)
+AR --> Q : {reply}
+Q -> Q : показать результат, панель не закрывать;\ninvalidateAllData()
+Q --> U : «Записал напоминание: по будням в 8:30»
+@enduml

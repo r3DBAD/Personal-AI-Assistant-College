@@ -1,0 +1,107 @@
+@startuml class_entities_activity
+!include _style.iuml
+title Классы-сущности: активности и ассистент
+
+package "Учётные записи и доступ" {
+  class User <<entity>> {
+    +id: UUID
+    +username: str
+    +password_hash: str
+    +telegram_id: int
+    +is_active: bool
+    +is_admin: bool
+    +preferred_group_id: UUID
+    +token_version: int
+  }
+}
+
+package "Активности" {
+  class Workout <<entity>> {
+    +type: str
+    +started_at: datetime
+    +ended_at: datetime
+    +distance_km: Decimal
+  }
+  class WorkoutExercise <<entity>> {
+    +name: str
+    +sets: JSON
+  }
+  class Refuel <<entity>> {
+    +refuel_date: date
+    +liters: Decimal
+    +total_cost: Decimal
+    +odometer_km: Decimal
+    +full_tank: bool
+  }
+  class Maintenance <<entity>> {
+    +service_date: date
+    +service_type: str
+    +cost: Decimal
+    +next_service_km: Decimal
+  }
+  class CarProfile <<entity>> {
+    +make: str
+    +model: str
+    +year: int
+    +regulation: JSON
+  }
+}
+
+package "Ассистент" {
+  class ChatMessage <<entity>> {
+    +role: str
+    +content: str
+    +source: str
+  }
+  class Nudge <<entity>> {
+    +kind: str
+    +title: str
+    +reason: str
+    +status: str
+  }
+  class NudgeSettings <<entity>> {
+    +quiet_from: int
+    +quiet_to: int
+    +daily_budget: int
+  }
+  class NudgeMute <<entity>> {
+    +kind: str
+    +muted_until: datetime
+  }
+  class HabitProfile <<entity>> {
+    +data: JSON
+    +computed_at: datetime
+  }
+  class WeeklyReport <<entity>> {
+    +week_start: date
+    +text: str
+    +data: JSON
+  }
+  class ClaudeJob <<entity>> {
+    +status: str
+    +prompt: str
+    +subject: str
+    +outputs: JSON
+    +cost_usd: Decimal
+  }
+  class PushDevice <<entity>> {
+    +token: str
+    +platform: str
+    +muted: JSON
+  }
+}
+
+Workout "0..*" --* "1" User
+Workout "1" *-- "0..*" WorkoutExercise
+Refuel "0..*" --* "1" User
+Maintenance "0..*" --* "1" User
+CarProfile "0..1" --* "1" User
+ChatMessage "0..*" --* "1" User
+Nudge "0..*" --* "1" User
+NudgeSettings "0..1" --* "1" User
+NudgeMute "0..*" --* "1" User
+User "1" *-- "0..1" HabitProfile
+User "1" *-- "0..*" WeeklyReport
+User "1" *-- "0..*" ClaudeJob
+User "1" *-- "0..*" PushDevice
+@enduml

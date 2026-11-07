@@ -1,0 +1,57 @@
+@startuml deployment
+!include _style.iuml
+skinparam nodesep 25
+skinparam ranksep 40
+title Диаграмма развёртывания системы R3DVIS
+
+node "Устройство пользователя\n(смартфон / компьютер)" as DEV {
+  artifact "Браузер: frontend (SPA, PWA)" as SPA
+  artifact "R3DVIS Mobile\n(Android ≥ 8.0, iOS ≥ 15.1)" as APP
+  artifact "Клиент Telegram" as TGC
+}
+
+node "Арендуемый виртуальный сервер\n<<Linux, 2 vCPU, 4 ГБ ОЗУ, 40 ГБ>>" as VPS {
+  node "Docker Compose: сеть default" as NET {
+    node "nginx\n:80, :443" as NGX
+    node "frontend" as FE
+    node "backend\nuvicorn :8000" as BE
+    node "bot\n:8081" as BOT
+    node "celery_worker,\ncelery_beat" as CEL
+    node "db\nPostgreSQL 16\n127.0.0.1:5432" as DB
+    node "redis 7" as RD
+    node "backup" as BK
+    node "certbot" as CB
+  }
+  node "Docker: сеть sandbox" as SB {
+    node "claude_runner" as RUN
+  }
+  folder "Тома: postgres_data,\nuploads, backups,\nclaude-queue, Учёба" as VOL
+}
+
+cloud "Интернет" as NETX {
+  node "Telegram, VK API,\nЯндекс CalDAV,\nGPTunnel" as SVC
+  node "Let's Encrypt,\nPush-сервисы,\nAnthropic" as SVC2
+}
+
+SPA --> NGX : HTTPS 443
+APP --> NGX : HTTPS 443
+TGC ..> SVC : Telegram
+NGX --> FE : HTTP
+NGX --> BE : HTTP /api/
+BE --> DB : TCP 5432
+BE --> RD : TCP 6379
+CEL --> DB
+CEL --> RD
+BOT --> BE : HTTP, X-Bot-Secret
+BE --> BOT : HTTP /ask
+BK --> DB : pg_dump ежесуточно
+BK --> VOL
+BE --> VOL
+RUN --> VOL : очередь;\nУчёба только чтение
+BOT --> SVC : HTTPS
+BE --> SVC : CalDAV
+CEL --> SVC : HTTPS
+CB --> SVC2 : ACME
+BE --> SVC2 : push
+RUN --> SVC2 : HTTPS
+@enduml

@@ -1,0 +1,84 @@
+@startuml component
+!include _style.iuml
+skinparam componentStyle uml2
+skinparam nodesep 30
+skinparam ranksep 45
+left to right direction
+title Диаграмма компонентов системы R3DVIS
+
+package "Клиенты" {
+  [Веб-клиент / PWA\nReact, TypeScript] as WEB
+  [Мобильное приложение\nExpo] as MOB
+}
+[Обратный прокси nginx\nTLS, CSP, срез X-Bot-*] as NG
+
+package "Серверная часть (FastAPI)" as BE {
+  portin "REST /api/v1/*" as REST
+  [Auth, Profile,\nFeatures, Admin] as AUTH
+  [Schedule,\nSubject tasks] as SCH
+  [Planner, Reminders,\nTodo] as PLAN
+  [Agenda, Habits,\nSport, Car] as AG
+  [Assistant, Nudges,\nConfig store] as AST
+  [Claude jobs,\nMaterials, Push] as CJ
+  [Синхронизация\nCalDAV] as CAL
+}
+
+package "Бот (aiogram 3)" as BOTP {
+  portin "/ask :8081" as ASK
+  [Обработчики Telegram\nи фоновые циклы] as TGH
+  [LLMDialog +\nToolRegistry] as LLM
+  [BackendClient] as BCL
+}
+
+package "Фоновые процессы" {
+  [Celery beat] as CB
+  [Celery worker] as CW
+}
+
+database "PostgreSQL 16" as PG
+database "Redis 7" as RDS
+[Песочница\nclaude_runner] as RUN
+folder "Папка-очередь\nзаданий" as QUE
+
+cloud "Внешние сервисы" as EXT {
+  [Telegram Bot API] as TGAPI
+  [VK API] as VK
+  [Яндекс Календарь] as YA
+  [GPTunnel] as GPT
+  [Push-сервисы] as PSH
+  [Anthropic] as ANT
+}
+
+WEB --> NG : HTTPS + JWT
+MOB --> NG : HTTPS + JWT
+NG --> REST
+REST --> AUTH
+REST --> SCH
+REST --> PLAN
+REST --> AG
+REST --> AST
+REST --> CJ
+AST --> ASK : вопрос с сайта
+ASK --> LLM
+TGH --> LLM
+LLM --> BCL
+TGH --> BCL
+BCL --> REST : X-Bot-Secret
+BE --> PG : SQLAlchemy (async)
+BE --> RDS : кэш, лимиты
+CB --> RDS : брокер
+CW --> RDS
+CW --> PG
+CW --> CAL
+SCH --> CAL
+PLAN --> CAL
+CAL --> YA
+TGH --> TGAPI
+TGH --> VK
+LLM --> GPT
+CW --> TGAPI : напоминания
+CJ --> PSH
+CJ --> QUE
+RUN --> QUE
+RUN --> ANT
+@enduml

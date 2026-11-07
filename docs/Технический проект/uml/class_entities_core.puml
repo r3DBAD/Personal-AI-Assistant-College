@@ -1,0 +1,101 @@
+@startuml class_entities_core
+!include _style.iuml
+title Классы-сущности: учётные записи, учёба, дела
+
+package "Учётные записи и доступ" {
+  class User <<entity>> {
+    +id: UUID
+    +username: str
+    +password_hash: str
+    +telegram_id: int
+    +is_active: bool
+    +is_admin: bool
+    +preferred_group_id: UUID
+    +token_version: int
+  }
+  class UserFeature <<entity>> {
+    +feature: str
+    +enabled: bool
+    +until: datetime
+  }
+  class AppSetting <<entity>> {
+    +key: str
+    +value: JSON
+  }
+}
+
+package "Учёба" {
+  class ScheduleGroup <<entity>> {
+    +name: str
+    +file_hash: str
+    +parsed_at: datetime
+  }
+  class ScheduleLesson <<entity>> {
+    +day_label: str
+    +time_slot: str
+    +discipline: str
+    +lesson_type: str
+    +teacher: str
+    +room: str
+    +slot_order: int
+  }
+  class SubjectTask <<entity>> {
+    +discipline: str
+    +title: str
+    +due_date: date
+    +priority: str
+    +completed: bool
+  }
+}
+
+package "Дела" {
+  class Project <<entity>> {
+    +name: str
+    +sphere: str
+  }
+  class Task <<entity>> {
+    +title: str
+    +status: TaskStatus
+    +priority: TaskPriority
+    +deadline: datetime
+  }
+  class Subtask <<entity>> {
+    +title: str
+    +done: bool
+    +order: int
+  }
+  class TaskTag <<entity>> {
+    +tag: str
+  }
+  class PlannerEvent <<entity>> {
+    +title: str
+    +event_type: str
+    +event_date: date
+    +start_time: time
+    +end_time: time
+    +reminder_minutes: int
+    +cal_uid: str
+    +cal_dirty: bool
+  }
+  class Reminder <<entity>> {
+    +text: str
+    +remind_at: datetime
+    +repeat_rule: str
+    +repeat_anchor: datetime
+    +sent: bool
+  }
+}
+
+User "1" *-- "0..*" UserFeature
+User "1" *-- "0..*" AppSetting
+User "1" *-- "0..*" ScheduleGroup
+ScheduleGroup "1" *-- "0..*" ScheduleLesson
+User "0..*" --> "0..1" ScheduleGroup : основная группа
+User "1" *-- "0..*" SubjectTask
+User "1" *-- "0..*" Project
+Project "1" *-- "0..*" Task
+Task "1" *-- "0..*" Subtask
+Task "1" *-- "0..*" TaskTag
+User "1" *-- "0..*" PlannerEvent
+User "1" *-- "0..*" Reminder
+@enduml
