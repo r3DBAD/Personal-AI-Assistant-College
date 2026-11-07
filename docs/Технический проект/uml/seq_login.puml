@@ -1,0 +1,47 @@
+@startuml seq_login
+!include _style.iuml
+title Последовательность: вход в учётную запись и обновление токена
+actor "Студент" as U
+participant "Веб-клиент\n(Login.tsx, ApiClient)" as W
+participant "nginx" as N
+participant "AuthRouter" as R
+participant "RedisClient" as RD
+participant "AuthService" as S
+database "PostgreSQL" as DB
+
+U -> W : имя пользователя, пароль
+W -> N : POST /api/v1/auth/login
+N -> R : запрос; X-Forwarded-For = $remote_addr
+R -> RD : INCR счётчиков по IP и по имени
+alt превышен лимит (10/мин с IP или 10/5 мин на имя)
+  R --> W : 429 Слишком много попыток
+else лимит не превышен
+  R -> S : authenticate_user(имя, пароль)
+  S -> DB : SELECT users WHERE username
+  DB --> S : запись пользователя
+  S -> S : verify_password (bcrypt)
+  alt неверные данные или запись отключена
+    S --> R : None
+    R --> W : 401 «Неверный логин или пароль»
+    W --> U : сообщение без указания поля
+  else данные верны
+    S -> S : create_access_token(uid, token_version)
+    S -> S : create_refresh_token(uid, token_version)
+    R --> W : access-токен в теле;\nrefresh в httpOnly-cookie (Secure, SameSite=Strict)
+    W -> W : хранить access только в памяти вкладки
+    W --> U : главная страница
+  end
+end
+== Истечение токена доступа ==
+W -> R : любой запрос → 401
+W -> R : POST /api/v1/auth/refresh (cookie)
+R -> S : verify_refresh_token
+R -> DB : сверить token_version
+alt версия совпадает
+  R --> W : новый access-токен
+  W -> R : повтор исходного запроса
+else версия поднята (смена пароля, отключение)
+  R --> W : 401
+  W --> U : экран входа
+end
+@enduml

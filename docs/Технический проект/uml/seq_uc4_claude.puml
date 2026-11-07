@@ -1,0 +1,37 @@
+@startuml seq_uc4_claude
+!include _style.iuml
+title Последовательность: постановка задания исполнителю (UC-4)
+actor "Студент" as U
+participant "Telegram-бот\n(handlers/claude_jobs)" as B
+participant "ClaudeJobsRouter" as R
+database "PostgreSQL" as DB
+participant "ClaudeQueue\n(папка-очередь)" as Q
+participant "claude_runner\n(песочница)" as S
+participant "ClaudeCollectTask\n(Celery, 15 с)" as C
+participant "MaterialsIndex /\nпапка «Готово»" as M
+
+U -> B : /claude, дисциплина, описание, файлы
+B -> R : POST /api/v1/claude/jobs (форма + файлы)
+R -> R : проверить возможность «claude», права\nадминистратора, пределы расходов
+R -> DB : INSERT claude_jobs (status = queued)
+R -> Q : save_input(файлы), submit(задание, промт)
+R --> B : задание принято
+B --> U : одно изменяемое сообщение о состоянии
+S -> Q : забрать pending/<id>.json
+S -> S : запуск Claude Code: ./in, /study только чтение,\nминимальное окружение, без доступа к БД и сети системы
+alt выполнено
+  S -> Q : файлы в jobs/<id>/out, итог done/<id>.json
+else ошибка или превышено время (45 мин)
+  S -> Q : done/<id>.json с ошибкой
+end
+C -> Q : done_results()
+C -> DB : обновить статус, outputs, стоимость
+C -> M : перенести файлы в «Готово» дисциплины,\nпередать права владельцу папки
+C -> B : отправить файлы и оценку стоимости
+B --> U : результат
+opt замечание пользователя
+  U -> B : текст замечания
+  B -> R : POST /api/v1/claude/jobs/{id}/reply
+  R -> Q : submit(задание, reply) — та же переписка
+end
+@enduml

@@ -1,0 +1,184 @@
+@startuml class_backend
+!include _style.iuml
+left to right direction
+title Классы серверной части: управление, бизнес-логика, доступ к данным
+
+package "Управление (Controller): маршрутизаторы FastAPI" {
+  class AuthRouter <<controller>> {
+    +login(LoginRequest): TokenResponse
+    +refresh(): TokenResponse
+    +logout()
+    +get_me(): UserOut
+  }
+  class ScheduleRouter <<controller>> {
+    +upload_schedule(file): dict
+    +list_groups(): list
+    +get_group(id): GroupScheduleOut
+    +sync_calendar(): dict
+    +mark_day_off(): dict
+  }
+  class PlannerRouter <<controller>> {
+    +list(event_date): list
+    +create(PlannerEventIn)
+    +update(id, patch)
+    +delete(id)
+    +week_plan(): dict
+    +apply_week_plan(pid, n): dict
+  }
+  class RemindersRouter <<controller>> {
+    +create_reminder(ReminderCreate)
+    +update_reminder(id, ReminderPatch)
+    +delete_reminder(id)
+  }
+  class AgendaRouter <<controller>> {
+    +agenda_day(date): dict
+    +week_report(week): dict
+  }
+  class AssistantRouter <<controller>> {
+    +ask(AskIn): dict
+    +inbox(InboxIn): dict
+    +history(limit): list
+    +clear_history()
+  }
+  class NudgesRouter <<controller>> {
+    +check(kind): CheckOut
+    +create(NudgeCreate)
+    +respond(id, NudgeRespond)
+    +mute(MuteIn)
+  }
+  class ClaudeJobsRouter <<controller>> {
+    +create_job(prompt, files)
+    +reply_job(id, text)
+    +get_file(id, name)
+  }
+  class AdminRouter <<controller>> {
+    +list_users(): list
+    +set_feature(user, key, GrantIn)
+    +patch_user(user, UserPatch)
+  }
+}
+
+package "Сквозные зависимости" {
+  class Dependencies <<service>> {
+    +get_current_user_id(token, X-Bot-Secret): UUID
+    +get_db(): AsyncSession
+  }
+  class FeatureGuard <<service>> {
+    +require_feature(key): Depends
+    +require_admin(): Depends
+    +enabled_features(user): set
+  }
+}
+
+package "Бизнес-логика (Service)" {
+  class AuthService <<service>> {
+    +hash_password(p): str
+    +verify_password(p, h): bool
+    +create_access_token(uid, ver): str
+    +create_refresh_token(uid, ver): str
+    +authenticate_user(name, p): User
+  }
+  class ScheduleParser <<service>> {
+    +parse_xlsx(bytes): list~GroupSchedule~
+    +parse_xlsx_safe(bytes): list~GroupSchedule~
+    +deduplicate_lessons(list): list
+  }
+  class ScheduleService <<service>> {
+    +upload_and_parse(user, bytes, name): list~ScheduleGroup~
+    +get_group_schedule(user, id): ScheduleGroup
+  }
+  class LessonCalendarSync <<service>> {
+    +sync_group_to_calendar(group, lessons, dry_run): dict
+    +add_day_off_to_calendar(date): dict
+  }
+  class PlannerCalendarSync <<service>> {
+    +sync_owner(session, user, dry_run): dict
+    +build_ical(event, uid): str
+    +parse_remote(obj, cal): list~Remote~
+  }
+  class AgendaService <<service>> {
+    +day_plan(user, day): dict
+    +is_day_off(name): bool
+  }
+  class WeekPlanner <<service>> {
+    +propose(user, monday): dict
+    +apply(user, pid, n): dict
+    +settle_sport(user, day): list
+  }
+  class RepeatRule <<service>> {
+    +normalize(rule): str
+    +describe(rule): str
+    +next_after(anchor, rule, after): datetime
+  }
+  class TimeUtil <<utility>> {
+    +msk_now(): datetime
+    +wall_to_utc(day, t): datetime
+    +msk_day_bounds_utc(day): tuple
+    +nearest_year_date(d, m): date
+  }
+  class ConfigStore <<service>> {
+    +values(keys, user): dict
+    +value(key, user): Any
+  }
+  class PushService <<service>> {
+    +send(user, category, title, body)
+  }
+  class ClaudeQueue <<service>> {
+    +submit(job, reply, system)
+    +done_results(): list
+    +save_input(job, name, data)
+  }
+  class MaterialsIndex <<service>> {
+    +refresh_index(subject): dict
+    +search(subject, query, limit): list
+  }
+}
+
+package "Фоновые задачи (Celery)" {
+  class ReminderTask <<task>> {
+    +send_due_reminders()
+  }
+  class CalendarTask <<task>> {
+    +sync_calendar()
+  }
+  class HabitTask <<task>> {
+    +build_habit_profiles()
+  }
+  class ClaudeCollectTask <<task>> {
+    +collect()
+  }
+}
+
+package "Доступ к данным" {
+  class AsyncSession <<infrastructure>>
+  class RedisClient <<infrastructure>>
+}
+
+AuthRouter ..> AuthService
+AuthRouter ..> RedisClient : лимит попыток
+ScheduleRouter ..> ScheduleService
+ScheduleRouter ..> LessonCalendarSync
+ScheduleService ..> ScheduleParser
+PlannerRouter ..> PlannerCalendarSync : пинок после коммита
+RemindersRouter ..> RepeatRule
+AgendaRouter ..> AgendaService
+PlannerRouter ..> WeekPlanner
+AgendaService ..> TimeUtil
+AgendaService ..> ConfigStore
+WeekPlanner ..> AgendaService
+ClaudeJobsRouter ..> ClaudeQueue
+ClaudeJobsRouter ..> MaterialsIndex
+ReminderTask ..> RepeatRule
+ReminderTask ..> PushService
+CalendarTask ..> PlannerCalendarSync
+ClaudeCollectTask ..> ClaudeQueue
+ScheduleRouter ..> FeatureGuard
+PlannerRouter ..> FeatureGuard
+AssistantRouter ..> FeatureGuard
+AdminRouter ..> FeatureGuard
+FeatureGuard ..> Dependencies
+ScheduleService ..> AsyncSession
+AgendaService ..> AsyncSession
+LessonCalendarSync ..> RedisClient
+PlannerCalendarSync ..> RedisClient : «надгробия»
+@enduml

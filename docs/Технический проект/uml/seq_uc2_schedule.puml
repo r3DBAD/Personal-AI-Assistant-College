@@ -1,0 +1,64 @@
+@startuml seq_uc2_schedule
+!include _style.iuml
+title Последовательность: автоматическое обновление расписания (UC-2)
+participant "VkScheduleLoop\n(бот)" as L
+participant "VkParser" as V
+participant "VK API" as VK
+participant "BackendClient" as BC
+participant "ScheduleRouter" as SR
+participant "ScheduleService" as SS
+participant "ScheduleParser" as SP
+database "PostgreSQL" as DB
+participant "RedisClient" as RD
+participant "LessonCalendarSync" as CS
+participant "Яндекс Календарь\n(CalDAV)" as YC
+participant "Telegram" as TG
+
+L -> L : ожидание срока опроса
+L -> BC : GET расписание (снимки «до»)
+L -> V : fetch_latest_schedule_xlsx(since = 7 дней)
+V -> VK : wall.get(count = 20)
+VK --> V : публикации
+V -> VK : скачать вложение xlsx (до 3 попыток)
+V --> L : (имя файла, байты)
+L -> RD : имя последнего файла
+alt файл уже загружался
+  L -> L : завершить прогон
+else новый файл
+  L -> BC : post_file(/schedule/upload)
+  BC -> SR : POST /api/v1/schedule/upload (X-Bot-Secret)
+  SR -> SR : расширение, размер, сигнатура
+  SR -> SS : upload_and_parse(user, bytes)
+  SS -> SP : parse_xlsx(bytes)
+  alt структура не распознана
+    SP --> SS : ValueError
+    SR --> BC : 422
+    BC --> L : ошибка → журнал
+  else разобрано
+    SP --> SS : группы и занятия (без дублей)
+    SS -> DB : DELETE занятия за дни из файла
+    SS -> DB : INSERT новые занятия
+    SR -> DB : COMMIT
+    SR -> RD : сбросить кэш расписания
+    SR --> BC : groups_count
+    L -> RD : запомнить имя файла
+    L -> BC : POST /schedule/sync-calendar
+    BC -> SR : запрос
+    SR -> CS : sync_group_to_calendar(группа, занятия)
+    CS -> YC : прочитать календарь целиком
+    alt календарь прочитан, перечень не пуст
+      CS -> YC : PUT / DELETE только событий *@r3dvis
+    else иначе
+      CS -> CS : отменить синхронизацию
+    end
+    L -> BC : GET расписание (снимки «после»)
+    L -> L : _build_schedule_diff(до, после)
+    opt изменился сегодняшний день
+      L -> TG : сообщение об изменениях
+    end
+    opt появились новые дни
+      L -> TG : сообщение о новом расписании\nи варианты плана недели
+    end
+  end
+end
+@enduml

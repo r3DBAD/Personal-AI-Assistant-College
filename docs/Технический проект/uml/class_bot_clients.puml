@@ -1,0 +1,121 @@
+@startuml class_bot_clients
+!include _style.iuml
+title Классы взаимодействия с пользователем и внешним миром
+
+package "Бот (контейнер bot)" {
+  class OwnerOnlyMiddleware <<boundary>> {
+    +__call__(handler, event, data)
+  }
+  class TelegramHandlers <<boundary>> {
+    +handle_text(message)
+    +on_homework_done(callback)
+    +on_sport(callback)
+    +cmd_why(message)
+    +cmd_quiet(message)
+  }
+  class BotHttpApi <<boundary>> {
+    -_authorized(request): bool
+    +handle_ask(request): Response
+    +handle_health(request): Response
+  }
+  class LLMDialog <<control>> {
+    -MAX_ROUNDS = 8
+    +chat(history, message, mode): str
+    +complete(system, user): str
+    -_context(): str
+    -_strip_ids(text): str
+  }
+  class ToolRegistry <<control>> {
+    +TOOLS: list
+    +HANDLERS: dict
+    +tool(name, description, props, required)
+    +resolve_id(short): str
+  }
+  class BackendClient <<boundary>> {
+    +acting_user: ContextVar
+    +get(path)
+    +post(path, data)
+    +patch(path, data)
+    +delete(path)
+    +post_file(path, name, bytes)
+    +push(category, title, body)
+  }
+  class VkScheduleLoop <<control>> {
+    +auto_vk_sync_loop(bot)
+    -_do_vk_sync(today_only, force): dict
+    -_build_schedule_diff(before, after): str
+  }
+  class VkParser <<boundary>> {
+    +fetch_latest_schedule_xlsx(since_ts): tuple
+    +is_day_off_post(text, posted, today): bool
+  }
+  class JarvisLoop <<control>> {
+    +RULES: list
+    +jarvis_loop(bot)
+    +rule_evening_digest(): dict
+    +rule_sport_checkin(): dict
+  }
+  class ScheduledMessages <<control>> {
+    +morning_loop(bot)
+    +work_hours_daily_loop(bot)
+    +weekly_ai_digest_loop(bot)
+  }
+  class NudgePolicyClient <<boundary>> {
+    +allowed(kind): tuple
+    +record(kind, title, body, reason)
+    +respond(id, status)
+  }
+}
+
+package "Веб-клиент (React, TypeScript)" {
+  class Pages <<boundary>> {
+    Dashboard, Schedule, Subjects,
+    Planner, Tasks, Reminders, Sport,
+    Car, Jarvis, Settings, Profile, Admin
+  }
+  class QuickCapture <<boundary>> {
+    +submit(phrase)
+  }
+  class ApiHooks <<control>> {
+    +useGroupSchedule(id)
+    +usePlannerEvents(date)
+    +useCompleteSubjectTask()
+    +patchLists(): rollback
+    +invalidateAllData()
+  }
+  class ApiClient <<boundary>> {
+    +accessToken (в памяти)
+    +interceptors: refresh по 401
+  }
+}
+
+package "Внешние системы" {
+  class TelegramBotAPI <<external>>
+  class GPTunnel <<external>>
+  class VKAPI <<external>>
+  class BackendREST <<external>> {
+    /api/v1/*
+  }
+}
+
+TelegramBotAPI --> OwnerOnlyMiddleware
+OwnerOnlyMiddleware --> TelegramHandlers
+TelegramHandlers ..> LLMDialog
+BotHttpApi ..> LLMDialog : вопрос с сайта
+BotHttpApi ..> BackendClient : acting_user
+LLMDialog ..> ToolRegistry
+LLMDialog ..> GPTunnel
+ToolRegistry ..> BackendClient
+VkScheduleLoop ..> VkParser
+VkParser ..> VKAPI
+VkScheduleLoop ..> BackendClient
+JarvisLoop ..> NudgePolicyClient
+JarvisLoop ..> LLMDialog : только формулировка
+ScheduledMessages ..> BackendClient
+NudgePolicyClient ..> BackendClient
+BackendClient ..> BackendREST : X-Bot-Secret
+Pages ..> ApiHooks
+QuickCapture ..> ApiHooks
+ApiHooks ..> ApiClient
+ApiClient ..> BackendREST : JWT
+@enduml
