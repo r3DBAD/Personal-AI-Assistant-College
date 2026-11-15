@@ -77,13 +77,6 @@ package "Ассистент" {
     +text: str
     +data: JSON
   }
-  class ClaudeJob <<entity>> {
-    +status: str
-    +prompt: str
-    +subject: str
-    +outputs: JSON
-    +cost_usd: Decimal
-  }
   class PushDevice <<entity>> {
     +token: str
     +platform: str
@@ -98,10 +91,9 @@ Maintenance "0..*" --* "1" User
 CarProfile "0..1" --* "1" User
 ChatMessage "0..*" --* "1" User
 Nudge "0..*" --* "1" User
-NudgeSettings "0..1" --* "1" User
-NudgeMute "0..*" --* "1" User
+User "1" *-- "0..1" NudgeSettings
+User "1" *-- "0..*" NudgeMute
 User "1" *-- "0..1" HabitProfile
 User "1" *-- "0..*" WeeklyReport
-User "1" *-- "0..*" ClaudeJob
 User "1" *-- "0..*" PushDevice
 @enduml

@@ -24,7 +24,6 @@ edge [fontname="Liberation Sans", fontsize=9, dir=both, color="#333333"];
 "nudges" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5"><TR><TD BGCOLOR="#e6e6e6" COLSPAN="3"><B>nudges</B><BR/><FONT POINT-SIZE="10">Обращение ассистента</FONT></TD></TR></TABLE>>];
 "nudge_settings" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5"><TR><TD BGCOLOR="#e6e6e6" COLSPAN="3"><B>nudge_settings</B><BR/><FONT POINT-SIZE="10">Настройки обращений</FONT></TD></TR></TABLE>>];
 "nudge_mutes" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5"><TR><TD BGCOLOR="#e6e6e6" COLSPAN="3"><B>nudge_mutes</B><BR/><FONT POINT-SIZE="10">Отключение повода</FONT></TD></TR></TABLE>>];
-"claude_jobs" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5"><TR><TD BGCOLOR="#e6e6e6" COLSPAN="3"><B>claude_jobs</B><BR/><FONT POINT-SIZE="10">Задание исполнителю</FONT></TD></TR></TABLE>>];
 "push_devices" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5"><TR><TD BGCOLOR="#e6e6e6" COLSPAN="3"><B>push_devices</B><BR/><FONT POINT-SIZE="10">Устройство оповещений</FONT></TD></TR></TABLE>>];
 "users" -> "user_features" [arrowtail=teeteenone, arrowhead=crowodot, label="получает"];
 "users" -> "app_settings" [arrowtail=teeteenone, arrowhead=crowodot, label="переопределяет"];
@@ -49,6 +48,5 @@ edge [fontname="Liberation Sans", fontsize=9, dir=both, color="#333333"];
 "users" -> "nudges" [arrowtail=teeteenone, arrowhead=crowodot, label="получает"];
 "users" -> "nudge_settings" [arrowtail=teeteenone, arrowhead=teeodot, label="настраивает"];
 "users" -> "nudge_mutes" [arrowtail=teeteenone, arrowhead=crowodot, label="отключает"];
-"claude_jobs" -> "users" [arrowtail=crowodot, arrowhead=teeteenone, label="ставит"];
 "push_devices" -> "users" [arrowtail=crowodot, arrowhead=teeteenone, label="регистрирует"];
 }

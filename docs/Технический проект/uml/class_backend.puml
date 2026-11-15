@@ -46,10 +46,10 @@ package "Управление (Controller): маршрутизаторы FastAPI
     +respond(id, NudgeRespond)
     +mute(MuteIn)
   }
-  class ClaudeJobsRouter <<controller>> {
-    +create_job(prompt, files)
-    +reply_job(id, text)
-    +get_file(id, name)
+  class MaterialsRouter <<controller>> {
+    +list_subjects(): list
+    +upload_files(name, files)
+    +search(subject, q): list
   }
   class AdminRouter <<controller>> {
     +list_users(): list
@@ -89,10 +89,13 @@ package "Бизнес-логика (Service)" {
   }
   class LessonCalendarSync <<service>> {
     +sync_group_to_calendar(group, lessons, dry_run): dict
+    -is_own_lesson(uid): bool
     +add_day_off_to_calendar(date): dict
   }
   class PlannerCalendarSync <<service>> {
     +sync_owner(session, user, dry_run): dict
+    +bury(calendar, uid)
+    -MAX_LOCAL_DELETES = 5
     +build_ical(event, uid): str
     +parse_remote(obj, cal): list~Remote~
   }
@@ -123,11 +126,6 @@ package "Бизнес-логика (Service)" {
   class PushService <<service>> {
     +send(user, category, title, body)
   }
-  class ClaudeQueue <<service>> {
-    +submit(job, reply, system)
-    +done_results(): list
-    +save_input(job, name, data)
-  }
   class MaterialsIndex <<service>> {
     +refresh_index(subject): dict
     +search(subject, query, limit): list
@@ -143,9 +141,6 @@ package "Фоновые задачи (Celery)" {
   }
   class HabitTask <<task>> {
     +build_habit_profiles()
-  }
-  class ClaudeCollectTask <<task>> {
-    +collect()
   }
 }
 
@@ -166,12 +161,10 @@ PlannerRouter ..> WeekPlanner
 AgendaService ..> TimeUtil
 AgendaService ..> ConfigStore
 WeekPlanner ..> AgendaService
-ClaudeJobsRouter ..> ClaudeQueue
-ClaudeJobsRouter ..> MaterialsIndex
+MaterialsRouter ..> MaterialsIndex
 ReminderTask ..> RepeatRule
 ReminderTask ..> PushService
 CalendarTask ..> PlannerCalendarSync
-ClaudeCollectTask ..> ClaudeQueue
 ScheduleRouter ..> FeatureGuard
 PlannerRouter ..> FeatureGuard
 AssistantRouter ..> FeatureGuard

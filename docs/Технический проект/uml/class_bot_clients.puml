@@ -26,10 +26,20 @@ package "Бот (контейнер bot)" {
     -_strip_ids(text): str
   }
   class ToolRegistry <<control>> {
-    +TOOLS: list
+    +TOOLS: list (57)
     +HANDLERS: dict
     +tool(name, description, props, required)
     +resolve_id(short): str
+  }
+  class OutboundFilter <<control>> {
+    +for_model(tool, result): str
+    +for_message(text): str
+    -drop_teacher(lesson): dict
+  }
+  class ConfirmationGate <<control>> {
+    +DANGEROUS: set
+    +needs_confirmation(tool, args): bool
+    +preview(tool, args): str
   }
   class BackendClient <<boundary>> {
     +acting_user: ContextVar
@@ -104,6 +114,10 @@ TelegramHandlers ..> LLMDialog
 BotHttpApi ..> LLMDialog : вопрос с сайта
 BotHttpApi ..> BackendClient : acting_user
 LLMDialog ..> ToolRegistry
+ToolRegistry ..> ConfirmationGate : удаление,\nмассовые операции
+ToolRegistry ..> OutboundFilter : результат\nдля модели
+VkScheduleLoop ..> OutboundFilter : текст\nдля Telegram
+JarvisLoop ..> OutboundFilter
 LLMDialog ..> GPTunnel
 ToolRegistry ..> BackendClient
 VkScheduleLoop ..> VkParser

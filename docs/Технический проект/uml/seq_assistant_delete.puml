@@ -1,0 +1,58 @@
+@startuml seq_assistant_delete
+!include _style.iuml
+title Последовательность: удаление записи через ассистента с подтверждением
+actor "Студент" as U
+participant "Telegram /\nвеб-клиент" as C
+participant "LLMDialog" as L
+participant "GPTunnel\n(языковая модель)" as G
+participant "ToolRegistry" as T
+participant "ConfirmationGate" as Q
+participant "BackendClient" as BC
+participant "PlannerRouter" as API
+database "PostgreSQL" as DB
+participant "Redis\n(yacal:tomb)" as RD
+
+U -> C : «удали тренировку в четверг»
+C -> L : вопрос
+L -> G : messages + TOOLS
+G --> L : tool_call get_day_plan(четверг)
+L -> T : HANDLERS[get_day_plan]
+T -> BC : get(/api/v1/planner?event_date=…)
+BC -> API : запрос от имени пользователя
+API -> DB : SELECT … WHERE user_id = :user
+API --> T : дела дня
+T --> L : «[3f9a1c2e] Бассейн 19:00–20:30»
+L -> G : результат
+G --> L : tool_call delete_event(event_id = 3f9a1c2e)
+L -> T : HANDLERS[delete_event]
+T -> T : resolve_id(«3f9a1c2e») — только среди\nзаписей, показанных пользователю
+T -> Q : needs_confirmation(delete_event, args)
+Q --> T : да, подтверждения нет
+T --> L : «Требуется подтверждение: удалить\n«Бассейн, чт 19:00–20:30»?»
+L --> C : вопрос пользователю
+C --> U : «Удалить „Бассейн, чт 19:00–20:30“?»
+alt пользователь подтвердил
+  U -> C : «да»
+  C -> L : ответ
+  L -> G : messages + TOOLS
+  G --> L : tool_call delete_event(event_id, confirm = true)
+  L -> T : HANDLERS[delete_event]
+  T -> Q : needs_confirmation → нет
+  T -> BC : delete(/api/v1/planner/{id})
+  BC -> API : DELETE
+  API -> DB : DELETE … WHERE id = :id AND user_id = :user
+  API -> RD : SADD «календарь|plan-<id>@r3dvis»
+  API --> T : 204
+  T --> L : «Удалено»
+  L --> C : ответ
+else пользователь отказался или не ответил
+  U -> C : «нет»
+  C -> L : ответ
+  L --> C : «Оставил без изменений»
+end
+note over RD
+  «Надгробие» снимается следующим прогоном
+  синхронизации (не позднее 5 минут) после удаления
+  события в календаре; срок хранения — не более 7 суток
+end note
+@enduml

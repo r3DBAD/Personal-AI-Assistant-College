@@ -19,14 +19,14 @@ package "Серверная часть (FastAPI)" as BE {
   [Planner, Reminders,\nTodo] as PLAN
   [Agenda, Habits,\nSport, Car] as AG
   [Assistant, Nudges,\nConfig store] as AST
-  [Claude jobs,\nMaterials, Push] as CJ
+  [Materials,\nPush] as CJ
   [Синхронизация\nCalDAV] as CAL
 }
 
 package "Бот (aiogram 3)" as BOTP {
   portin "/ask :8081" as ASK
   [Обработчики Telegram\nи фоновые циклы] as TGH
-  [LLMDialog +\nToolRegistry] as LLM
+  [LLMDialog, ToolRegistry,\nOutboundFilter] as LLM
   [BackendClient] as BCL
 }
 
@@ -37,8 +37,6 @@ package "Фоновые процессы" {
 
 database "PostgreSQL 16" as PG
 database "Redis 7" as RDS
-[Песочница\nclaude_runner] as RUN
-folder "Папка-очередь\nзаданий" as QUE
 
 cloud "Внешние сервисы" as EXT {
   [Telegram Bot API] as TGAPI
@@ -46,7 +44,6 @@ cloud "Внешние сервисы" as EXT {
   [Яндекс Календарь] as YA
   [GPTunnel] as GPT
   [Push-сервисы] as PSH
-  [Anthropic] as ANT
 }
 
 WEB --> NG : HTTPS + JWT
@@ -78,7 +75,4 @@ TGH --> VK
 LLM --> GPT
 CW --> TGAPI : напоминания
 CJ --> PSH
-CJ --> QUE
-RUN --> QUE
-RUN --> ANT
 @enduml

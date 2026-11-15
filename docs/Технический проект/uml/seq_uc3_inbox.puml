@@ -9,6 +9,7 @@ participant "BotHttpApi" as BH
 participant "LLMDialog" as L
 participant "GPTunnel\n(языковая модель)" as G
 participant "ToolRegistry" as T
+participant "OutboundFilter" as F
 participant "BackendClient" as BC
 participant "PlannerRouter /\nRemindersRouter / …" as API
 
@@ -30,6 +31,8 @@ loop не более 8 раундов
     BC -> API : запрос от имени acting_user
     API -> DB : INSERT reminders
     API --> T : созданная запись
+    T -> F : for_model(create_reminder, результат)
+    F --> T : текст без фамилий преподавателей\nи наименований чужих групп
     T --> L : «Напоминание по будням в 8:30 [a1b2c3d4]»
   else текстовый ответ
     G --> L : итоговый текст

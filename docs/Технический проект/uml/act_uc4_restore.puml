@@ -1,6 +1,6 @@
-@startuml act_uc5_restore
+@startuml act_uc4_restore
 !include _style.iuml
-title Деятельность: восстановление данных из резервной копии (UC-5)
+title Деятельность: восстановление данных из резервной копии (UC-4)
 |Оператор|
 start
 :Установить по журналам (docker compose logs)\nпричину и объём утраты;
